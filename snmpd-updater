@@ -1,0 +1,24 @@
+#/bin/sh
+
+CONFIG_MANAGER="/opt/vyatta/sbin/vyatta-snmp.pl"
+SNMPD="/etc/snmp/snmpd.conf"
+
+INSERT_POINT='pass .1.3.6.1.2.1.31.1.1.1.18 \/opt\/vyatta\/sbin\/if-mib-alias'
+INSERT_POINT='pass .1.3.6.1.2.1.31.1.1.1.18 '
+
+NEWLINE='pass .1.3.6.1.4.1.56751.1.1 \/config\/scripts\/snmp-watchdog'
+WRAPPED="print '$NEWLINE\\\n;'"
+
+# Update the system which manages snmp config.
+if [ -s "$CONFIG_MANAGER" ] && ! /bin/grep -q "$NEWLINE" $CONFIG_MANAGER; then
+  echo "$CONFIG_MANAGER"
+   /usr/bin/sudo /bin/sed -i "/$INSERT_POINT/a $WRAPPED" "$CONFIG_MANAGER"
+fi
+
+# Update the snmpd.conf config file directly, and restart the service.
+if [ -s $SNMPD ] && ! /bin/grep -q "$NEWLINE" $SNMPD; then
+   echo "$SNMPD"
+   /usr/bin/sudo /bin/sed -i "/$INSERT_POINT/a $NEWLINE" "$SNMPD"
+   /usr/bin/sudo invoke-rc.d snmpd restart
+fi
+
