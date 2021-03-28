@@ -12,51 +12,36 @@ from .agent_based_api.v1 import (
     startswith,
 )
 
-register.snmp_section(
-    name = "edgeos_failover",
-    detect = all_of(
-        startswith(".1.3.6.1.2.1.1.1.0", "EdgeOS"),           # first check sysDescr
-        equals(".1.3.6.1.4.1.56751.1.1", "Watchdog Status"),  # fetch vendor specific OID
-    ),
-    fetch = SNMPTree(base = '.1.3.6.1.4.1.56751.1',
-            	     oids=[OIDEnd(),"1"])
-            	     #oids=['1','2'])
-)
-
-def process_oids(section):
-    lookup = dict((k,v) for k,v in section)
-    groups = dict()
-    for element in section:
-        parts = element[0].split('.')
-        if len(parts) == 3:
-            group_name = lookup.get(parts[0])
-            interface_name = lookup.get('.'.join(parts[0:2]))
-            status = element[1]
-            #print(f"{group_name}:{interface_name}:{status}")
-            if group_name not in groups:
-                groups[group_name] = dict()
-            if interface_name not in groups[group_name]:
-                groups[group_name][interface_name] = status
-    return groups
+OID_BASE = '.1.3.6.1.4.1.56751.1.1'
+OIDS = [
+    '0', # load balance group name
+    '1', # interface name
+    '2', # state
+]
 
 def discovery_edgeos_failover(section):
-    groups = process_oids(section)
-    for group in groups.keys():
+    groups = set([x[0] for x in section])
+    for group in groups:
         yield Service(item=group)
 
 def check_edgeos_failover(item, section):
-    groups = process_oids(section)
-    group = groups[item]
-    
+    interfaces = [ x for x in section if x[0] == item ]
+    summary = []
     overall_state = State.OK
-    for state in group.values():
-        if state != "OK":
+    for interface in interfaces:
+        summary.append(f"{interface[1]}={interface[2]}")
+        if interface[2] != "OK":
             overall_state = State.WARN
+    yield Result(state=overall_state, summary=" ".join(summary))
 
-    pairs = []
-    for interface,status in group.items():
-        pairs.append(f"{interface}={status}")
-    yield Result(state=overall_state, summary=" ".join(pairs))
+register.snmp_section(
+    name = "edgeos_failover",
+    detect = all_of(
+        startswith(".1.3.6.1.2.1.1.1.0", "EdgeOS"), # first check sysDescr
+        equals(OID_BASE, "Watchdog Status"),  # fetch vendor specific OID
+    ),
+    fetch = SNMPTree(base=OID_BASE, oids=OIDS)
+)
 
 register.check_plugin(
     name = 'edgeos_failover',
