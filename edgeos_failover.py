@@ -30,7 +30,7 @@ def check_edgeos_failover(item, section):
     overall_state = State.OK
     for interface in interfaces:
         summary.append(f"{interface[1]}={interface[2]}")
-        if interface[2] != "OK":
+        if interface[2] != "OK" and interface[2] != "Running":
             overall_state = State.WARN
     yield Result(state=overall_state, summary=" ".join(summary))
 

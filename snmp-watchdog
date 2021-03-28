@@ -72,6 +72,7 @@ sub parse_status {
         while ( $ifaceblock =~ /^  (.+)\n  status: ([^\n]*)/gm ) {
             my $iface = $1;
             my $status = $2;
+            $status =~ s/\s+$//g; # remove trailing space
             push(@groups, [$group, $iface, $status]);
         }
     }
