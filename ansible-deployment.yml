@@ -1,0 +1,49 @@
+---
+- name: copy snmp-watchdog
+  copy:
+    src: files/snmp-watchdog
+    dest: /config/scripts/snmp-watchdog
+    mode: '555'
+  vars:
+    ansible_connection: ssh # overriding "network_cli" from the host.
+                            # this allows us to use the copy module.
+
+- name: copy show-watchdog-status - mipsle
+  copy:
+    src: files/show-watchdog-status_mipsle
+    dest: /config/scripts/show-watchdog-status
+    owner: root
+    mode: '4555' # needs the SUID bit
+  become: yes # required to set the owner as root.
+  vars:
+    ansible_connection: ssh
+  when: ansible_net_model.startswith('EdgeRouter X')
+
+- name: copy show-watchdog-status - mips64
+  copy:
+    src: files/show-watchdog-status_mips64
+    dest: /config/scripts/show-watchdog-status
+    owner: root
+    mode: '4555' # needs the SUID bit
+  become: yes # required to set the owner as root.
+  vars:
+    ansible_connection: ssh
+  when: not ansible_net_model.startswith('EdgeRouter X')
+
+- name: copy snmpd-updater
+  copy:
+    src: files/snmpd-updater
+    dest: /config/scripts/post-config.d/snmpd-updater
+    mode: '555'
+  register: snmpd_updater
+  vars:
+    ansible_connection: ssh
+
+- name: run snmpd-updater
+  edgeos_command:
+    commands:
+    - "/config/scripts/post-config.d/snmpd-updater"
+  when:
+    - snmpd_updater.changed
+    - not ansible_check_mode
+
